@@ -1,7 +1,7 @@
 /* @internal */
 namespace ts.GoToDefinition {
     export function getDefinitionAtPosition(program: Program, sourceFile: SourceFile, position: number): DefinitionInfo[] {
-        /// Triple slash reference comments
+        /// Triple slash reference comments ???
         const comment = findReferenceInPosition(sourceFile.referencedFiles, position);
         if (comment) {
             const referenceFile = tryResolveScriptReference(program, sourceFile, comment);

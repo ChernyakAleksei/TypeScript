@@ -41,8 +41,8 @@ namespace ts.FindAllReferences {
         readonly implementations?: boolean;
     }
 
-    export function findReferencedSymbols(checker: TypeChecker, cancellationToken: CancellationToken, sourceFiles: SourceFile[], sourceFile: SourceFile, position: number): ReferencedSymbol[] | undefined {
-        const referencedSymbols = findAllReferencedSymbols(checker, cancellationToken, sourceFiles, sourceFile, position);
+    export function findReferencedSymbols(program: Program, checker: TypeChecker, cancellationToken: CancellationToken, sourceFiles: SourceFile[], sourceFile: SourceFile, position: number): ReferencedSymbol[] | undefined {
+        const referencedSymbols = findAllReferencedSymbols(program, checker, cancellationToken, sourceFiles, sourceFile, position);
 
         if (!referencedSymbols || !referencedSymbols.length) {
             return undefined;
@@ -59,13 +59,13 @@ namespace ts.FindAllReferences {
         return out;
     }
 
-    export function getImplementationsAtPosition(checker: TypeChecker, cancellationToken: CancellationToken, sourceFiles: SourceFile[], sourceFile: SourceFile, position: number): ImplementationLocation[] {
+    export function getImplementationsAtPosition(program: Program, checker: TypeChecker, cancellationToken: CancellationToken, sourceFiles: SourceFile[], sourceFile: SourceFile, position: number): ImplementationLocation[] {
         const node = getTouchingPropertyName(sourceFile, position);
-        const referenceEntries = getImplementationReferenceEntries(checker, cancellationToken, sourceFiles, node);
+        const referenceEntries = getImplementationReferenceEntries(program, checker, cancellationToken, sourceFiles, node);
         return map(referenceEntries, entry => toImplementationLocation(entry, checker));
     }
 
-    function getImplementationReferenceEntries(typeChecker: TypeChecker, cancellationToken: CancellationToken, sourceFiles: SourceFile[], node: Node): Entry[] | undefined {
+    function getImplementationReferenceEntries(program: Program, typeChecker: TypeChecker, cancellationToken: CancellationToken, sourceFiles: SourceFile[], node: Node): Entry[] | undefined {
         // If invoked directly on a shorthand property assignment, then return
         // the declaration of the symbol being assigned (not the symbol being assigned to).
         if (node.parent.kind === SyntaxKind.ShorthandPropertyAssignment) {
@@ -81,22 +81,22 @@ namespace ts.FindAllReferences {
         }
         else {
             // Perform "Find all References" and retrieve only those that are implementations
-            return getReferenceEntriesForNode(node, sourceFiles, typeChecker, cancellationToken, { implementations: true });
+            return getReferenceEntriesForNode(node, program, sourceFiles, typeChecker, cancellationToken, { implementations: true });
         }
     }
 
-    export function findReferencedEntries(checker: TypeChecker, cancellationToken: CancellationToken, sourceFiles: SourceFile[], sourceFile: SourceFile, position: number, options?: Options): ReferenceEntry[] | undefined {
-        const x = flattenEntries(findAllReferencedSymbols(checker, cancellationToken, sourceFiles, sourceFile, position, options));
+    export function findReferencedEntries(program: Program, checker: TypeChecker, cancellationToken: CancellationToken, sourceFiles: SourceFile[], sourceFile: SourceFile, position: number, options?: Options): ReferenceEntry[] | undefined {
+        const x = flattenEntries(findAllReferencedSymbols(program, checker, cancellationToken, sourceFiles, sourceFile, position, options));
         return map(x, toReferenceEntry);
     }
 
-    export function getReferenceEntriesForNode(node: Node, sourceFiles: SourceFile[], checker: TypeChecker, cancellationToken: CancellationToken, options: Options = {}): Entry[] | undefined {
-        return flattenEntries(Core.getReferencedSymbolsForNode(node, sourceFiles, checker, cancellationToken, options));
+    export function getReferenceEntriesForNode(node: Node, program: Program, sourceFiles: SourceFile[], checker: TypeChecker, cancellationToken: CancellationToken, options: Options = {}): Entry[] | undefined {
+        return flattenEntries(Core.getReferencedSymbolsForNode(node, program, sourceFiles, checker, cancellationToken, options));
     }
 
-    function findAllReferencedSymbols(checker: TypeChecker, cancellationToken: CancellationToken, sourceFiles: SourceFile[], sourceFile: SourceFile, position: number, options?: Options): SymbolAndEntries[] | undefined {
+    function findAllReferencedSymbols(program: Program, checker: TypeChecker, cancellationToken: CancellationToken, sourceFiles: SourceFile[], sourceFile: SourceFile, position: number, options?: Options): SymbolAndEntries[] | undefined {
         const node = getTouchingPropertyName(sourceFile, position, /*includeJsDocComment*/ true);
-        return Core.getReferencedSymbolsForNode(node, sourceFiles, checker, cancellationToken, options);
+        return Core.getReferencedSymbolsForNode(node, program, sourceFiles, checker, cancellationToken, options);
     }
 
     function flattenEntries(referenceSymbols: SymbolAndEntries[]): Entry[] {
@@ -261,7 +261,7 @@ namespace ts.FindAllReferences {
 /* @internal */
 namespace ts.FindAllReferences.Core {
     /** Core find-all-references algorithm. Handles special cases before delegating to `getReferencedSymbolsForSymbol`. */
-    export function getReferencedSymbolsForNode(node: Node, sourceFiles: SourceFile[], checker: TypeChecker, cancellationToken: CancellationToken, options: Options = {}): SymbolAndEntries[] | undefined {
+    export function getReferencedSymbolsForNode(node: Node, program: Program, sourceFiles: SourceFile[], checker: TypeChecker, cancellationToken: CancellationToken, options: Options = {}): SymbolAndEntries[] | undefined {
         if (node.kind === ts.SyntaxKind.SourceFile) {
             return undefined;
         }
@@ -285,12 +285,48 @@ namespace ts.FindAllReferences.Core {
             return undefined;
         }
 
+        if (symbol.flags & SymbolFlags.Module) {
+            return getReferencedSymbolsForModule(program, symbol, sourceFiles, checker);
+        }
+
         // The symbol was an internal symbol and does not have a declaration e.g. undefined symbol
         if (!symbol.declarations || !symbol.declarations.length) {
             return undefined;
         }
 
         return getReferencedSymbolsForSymbol(symbol, node, sourceFiles, checker, cancellationToken, options);
+    }
+
+    function getReferencedSymbolsForModule(program: Program, symbol: Symbol, sourceFiles: SourceFile[], checker: TypeChecker): SymbolAndEntries[] {
+        Debug.assert(!!symbol.valueDeclaration); //valid?
+        const references = findModuleRefffs(program, sourceFiles, checker, symbol).map<Entry>(node => { //don't call it node
+            if (node.kind === "import") {
+                return ({ type: "node", node: node.literal })
+            } else {
+                return {
+                    type: "span",
+                    fileName: node.referencingFile.fileName,
+                    textSpan: { start: node.ref.pos, length: node.ref.end - node.ref.pos }, //helper fn for this?
+                }
+            }
+        });
+        for (const decl of symbol.declarations) {
+            switch (decl.kind) {
+                case ts.SyntaxKind.SourceFile:
+                    // skip
+                    break;
+                case ts.SyntaxKind.ModuleDeclaration:
+                    references.push({ type: "node", node: (decl as ts.ModuleDeclaration).name });
+                    break;
+                default:
+                    Debug.assert(false);
+            }
+        }
+
+        return [{
+            definition: { type: "symbol", symbol, node: symbol.valueDeclaration },
+            references
+        }];
     }
 
     /** getReferencedSymbols for special node kinds. */

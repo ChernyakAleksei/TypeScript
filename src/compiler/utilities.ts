@@ -1866,9 +1866,17 @@ namespace ts {
         return undefined;
     }
 
-    export function tryResolveScriptReference(host: ScriptReferenceHost, sourceFile: SourceFile, reference: FileReference) {
+    //name
+    export function tryResolveScriptReferenceFileName(sourceFile: SourceFile, reference: FileReference): string {
+        return isRootedDiskPath(reference.fileName) ? reference.fileName : combinePaths(getDirectoryPath(sourceFile.fileName), reference.fileName);
+    }
+
+    //!!!!!
+    //This may not be ideal... doesn't handle missing '.ts' extension!
+    //Use 'resolveTripleSlashReference' from program.ts instead!!!
+    export function tryResolveScriptReference(host: ScriptReferenceHost, sourceFile: SourceFile, reference: FileReference): SourceFile | undefined {
         if (!host.getCompilerOptions().noResolve) {
-            const referenceFileName = isRootedDiskPath(reference.fileName) ? reference.fileName : combinePaths(getDirectoryPath(sourceFile.fileName), reference.fileName);
+            const referenceFileName = tryResolveScriptReferenceFileName(sourceFile, reference);
             return host.getSourceFile(referenceFileName);
         }
     }
@@ -1888,21 +1896,21 @@ namespace ts {
         const isNoDefaultLibRegEx = /^(\/\/\/\s*<reference\s+no-default-lib\s*=\s*)('|")(.+?)\2\s*\/>/gim;
         if (simpleReferenceRegEx.test(comment)) {
             if (isNoDefaultLibRegEx.test(comment)) {
-                return {
-                    isNoDefaultLib: true
-                };
+                return { isNoDefaultLib: true };
             }
             else {
                 const refMatchResult = fullTripleSlashReferencePathRegEx.exec(comment);
                 const refLibResult = !refMatchResult && fullTripleSlashReferenceTypeReferenceDirectiveRegEx.exec(comment);
-                if (refMatchResult || refLibResult) {
+                const match = refMatchResult || refLibResult;
+                if (match) {
+                    //This should be the range of the actual text...
                     const start = commentRange.pos;
-                    const end = commentRange.end;
+                    const pos = start + match[1].length + match[2].length;
                     return {
                         fileReference: {
-                            pos: start,
-                            end: end,
-                            fileName: (refMatchResult || refLibResult)[3]
+                            pos,
+                            end: pos + match[3].length,
+                            fileName: match[3]
                         },
                         isNoDefaultLib: false,
                         isTypeReferenceDirective: !!refLibResult

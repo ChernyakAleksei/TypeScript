@@ -300,6 +300,49 @@ namespace ts.FindAllReferences {
         });
     }
 
+    type Foo =
+        | { kind: "import", literal: StringLiteral }
+        | { kind: "reference", referencingFile: SourceFile, ref: FileReference };
+    export function findModuleRefffs(program: Program, sourceFiles: SourceFile[], checker: TypeChecker, searchModuleSymbol: Symbol): Foo[] {
+        const refs: Foo[] = [];
+        for (const sourceFile of sourceFiles) {
+            //neater
+            const x = searchModuleSymbol.valueDeclaration;
+            if (x.kind === ts.SyntaxKind.SourceFile) {
+                for (const r of sourceFile.referencedFiles) {
+                    //const s = tryResolveScriptReference(program, sourceFile, r);
+                    //if (s !== undefined && s.symbol === searchModuleSymbol) {
+                    //    refs.push(r);
+                    //}
+                    //const s = program.twoPath(tryResolveScriptReferenceFileName(sourceFile, r));
+                    //if (s === (x as ts.SourceFile).fileName) {
+                    //    refs.push(r);
+                    //}
+
+                    const s = program.getSourceFileForReference(sourceFile, r, /*isDefaultLib*/false); //TODO: determine isDefaultLib somehow
+                    if (s === x) {
+                        refs.push({ kind: "reference", referencingFile: sourceFile, ref: r });
+                    }
+                }
+                for (const r of sourceFile.typeReferenceDirectives) {
+                    //need twoPath?
+                    const s = program.getResolvedTypeReferenceDirectives().get(r.fileName);
+                    if (s !== undefined && s.resolvedFileName === (x as ts.SourceFile).fileName) {
+                        refs.push({ kind: "reference", referencingFile: sourceFile, ref: r });
+                    }
+                }
+            }
+
+            forEachImport(sourceFile, (_importDecl, moduleSpecifier) => {
+                const moduleSymbol = checker.getSymbolAtLocation(moduleSpecifier);
+                if (moduleSymbol === searchModuleSymbol) {
+                    refs.push({ kind: "import", literal: moduleSpecifier });
+                }
+            });
+        }
+        return refs;
+    }
+
     /** Returns a map from a module symbol Id to all import statements that directly reference the module. */
     function getDirectImportsMap(sourceFiles: SourceFile[], checker: TypeChecker, cancellationToken: CancellationToken): Map<ImporterOrCallExpression[]> {
         const map = createMap<ImporterOrCallExpression[]>();
