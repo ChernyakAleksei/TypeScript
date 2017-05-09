@@ -325,7 +325,6 @@ namespace ts.FindAllReferences {
                     }
                 }
                 for (const r of sourceFile.typeReferenceDirectives) {
-                    //need twoPath?
                     const s = program.getResolvedTypeReferenceDirectives().get(r.fileName);
                     if (s !== undefined && s.resolvedFileName === (x as ts.SourceFile).fileName) {
                         refs.push({ kind: "reference", referencingFile: sourceFile, ref: r });

@@ -2410,7 +2410,6 @@ namespace ts {
         // For testing purposes only.
         /* @internal */ structureIsReused?: StructureIsReused;
 
-        /* @internal */ twoPath(fileName: string): string; //kill
         /* @internal */ getSourceFileForReference(referencingFile: SourceFile, ref: FileReference, isDefaultLib: boolean): SourceFile | undefined;
     }
 

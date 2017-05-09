@@ -436,7 +436,6 @@ namespace ts {
             getResolvedTypeReferenceDirectives: () => resolvedTypeReferenceDirectives,
             isSourceFileFromExternalLibrary,
             dropDiagnosticsProducingTypeChecker,
-            twoPath,
             getSourceFileForReference,
         };
 
@@ -1375,7 +1374,7 @@ namespace ts {
         //all this does is add diagnostics???
         //No, `findSourceFile` has the side effect of adding the source file.
         //TODO: have "diagnostics?" flag.
-        function processSourceFile(fileName: string, isDefaultLib: boolean, refFile?: SourceFile, refPos?: number, refEnd?: number, showDiagnostics?: boolean) {
+        function processSourceFile(fileName: string, isDefaultLib: boolean, refFile?: SourceFile, refPos?: number, refEnd?: number) {
             let diagnosticArgument: string[];
             let diagnostic: DiagnosticMessage;
             if (hasExtension(fileName)) {
@@ -1407,7 +1406,7 @@ namespace ts {
                 }
             }
 
-            if (diagnostic && showDiagnostics) {
+            if (diagnostic) {
                 if (refFile !== undefined && refEnd !== undefined && refPos !== undefined) {
                     fileProcessingDiagnostics.add(createFileDiagnostic(refFile, refPos, refEnd - refPos, diagnostic, ...diagnosticArgument));
                 }

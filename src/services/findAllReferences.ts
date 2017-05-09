@@ -285,7 +285,7 @@ namespace ts.FindAllReferences.Core {
             return undefined;
         }
 
-        if (symbol.flags & SymbolFlags.Module) {
+        if (symbol.flags & SymbolFlags.Module && isModuleReferenceLocation(node)) {
             return getReferencedSymbolsForModule(program, symbol, sourceFiles, checker);
         }
 
@@ -295,6 +295,23 @@ namespace ts.FindAllReferences.Core {
         }
 
         return getReferencedSymbolsForSymbol(symbol, node, sourceFiles, checker, cancellationToken, options);
+    }
+
+    function isModuleReferenceLocation(node: ts.Node): boolean {
+        if (node.kind !== SyntaxKind.StringLiteral) {
+            return false;
+        }
+        switch (node.parent.kind) {
+            case ts.SyntaxKind.ModuleDeclaration:
+            case SyntaxKind.ExternalModuleReference:
+            case SyntaxKind.ImportDeclaration:
+            case SyntaxKind.ExportDeclaration:
+                return true;
+            case SyntaxKind.CallExpression:
+                return ts.isRequireCall(node.parent as CallExpression, /*checkArgumentIsStringLiteral*/ false);
+            default:
+                return false;
+        }
     }
 
     function getReferencedSymbolsForModule(program: Program, symbol: Symbol, sourceFiles: SourceFile[], checker: TypeChecker): SymbolAndEntries[] {
