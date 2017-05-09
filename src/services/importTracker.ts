@@ -319,7 +319,7 @@ namespace ts.FindAllReferences {
                     //    refs.push(r);
                     //}
 
-                    const s = program.getSourceFileForReference(sourceFile, r, /*isDefaultLib*/false); //TODO: determine isDefaultLib somehow
+                    const s = program.getSourceFileForReference(sourceFile, r); //TODO: determine isDefaultLib somehow
                     if (s === x) {
                         refs.push({ kind: "reference", referencingFile: sourceFile, ref: r });
                     }

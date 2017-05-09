@@ -32,7 +32,7 @@ namespace ts {
     export type Path = string & { __pathBrand: any };
 
     export interface FileMap<T> {
-        get(fileName: Path): T;
+        get(fileName: Path): T | undefined;
         set(fileName: Path, value: T): void;
         contains(fileName: Path): boolean;
         remove(fileName: Path): void;
@@ -2410,7 +2410,7 @@ namespace ts {
         // For testing purposes only.
         /* @internal */ structureIsReused?: StructureIsReused;
 
-        /* @internal */ getSourceFileForReference(referencingFile: SourceFile, ref: FileReference, isDefaultLib: boolean): SourceFile | undefined;
+        /* @internal */ getSourceFileForReference(referencingFile: SourceFile, ref: FileReference): SourceFile | undefined;
     }
 
     /* @internal */

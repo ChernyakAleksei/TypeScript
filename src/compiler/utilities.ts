@@ -1866,17 +1866,9 @@ namespace ts {
         return undefined;
     }
 
-    //name
-    export function tryResolveScriptReferenceFileName(sourceFile: SourceFile, reference: FileReference): string {
-        return isRootedDiskPath(reference.fileName) ? reference.fileName : combinePaths(getDirectoryPath(sourceFile.fileName), reference.fileName);
-    }
-
-    //!!!!!
-    //This may not be ideal... doesn't handle missing '.ts' extension!
-    //Use 'resolveTripleSlashReference' from program.ts instead!!!
     export function tryResolveScriptReference(host: ScriptReferenceHost, sourceFile: SourceFile, reference: FileReference): SourceFile | undefined {
         if (!host.getCompilerOptions().noResolve) {
-            const referenceFileName = tryResolveScriptReferenceFileName(sourceFile, reference);
+            const referenceFileName = isRootedDiskPath(reference.fileName) ? reference.fileName : combinePaths(getDirectoryPath(sourceFile.fileName), reference.fileName);
             return host.getSourceFile(referenceFileName);
         }
     }
